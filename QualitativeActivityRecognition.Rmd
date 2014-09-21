@@ -1,0 +1,66 @@
+---
+title: "Qualitative Activity Recognition"
+author: "HyoJung Kim"
+date: "Sunday, September 21, 2014"
+output: html_document
+---
+# 1. Overview 
+People rarely quantify how well they do executing an activity. 
+So, data from the 4 sensors(belt, forearm, arm, and dumbell of 6 participants) generating some features on the Euler angles (roll, pitch and yaw), as well as the raw accelerometer, gyroscope and magnetometer readings is utilized. For the Euler angles of each of the four sensors, we calculated eight features: mean, variance, standard deviation, max, min, amplitude, kurtosis and skewness, generating in total 96 derived feature sets. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset). 
+
+Based on training data provided, we apply machine learning algorithm and finally make predictions on our behaviors. 
+
+* Exactly according to the specification (Class A), 
+* throwing the elbows to the front (Class B), 
+* lifting the dumbbell only halfway (Class C), 
+* lowering the dumbbell only halfway (Class D) 
+* and throwing the hips to the front (Class E). 
+
+# 2. Prepare data 
+Eliminate less helpful features to predict class for qualitative activity recognition. Some index or time series features with NA value are finally removed. 
+
+```{r cachedChunk, cache=TRUE}
+alldata <- read.csv("pml-training.csv")
+# Remove first 6 columns that is not related to qualitative Activity Recognition context
+adjdata <- alldata[, -c(1:6)]
+# Remove columns with near zero value with less variance 
+library(caret)
+nsv <- nearZeroVar(adjdata, saveMetrics=TRUE)
+adjdata <- adjdata[,-c(which(nsv$nzv))]
+# Remove columns having NA values
+adjdata <- subset(adjdata, select= colSums(is.na(adjdata))==0 )
+dim(adjdata)
+# Split data 
+inTrain <- createDataPartition(y=adjdata$classe, p=0.75, list=FALSE)
+training <- adjdata[inTrain, ]
+testing <- adjdata[-inTrain, ] # validation data set 
+# plot training data
+qplot(classe, data=training, geom="density")
+```
+
+# 3. Build Model based on Random Forest 
+Compared to other models, random forest model shows relatively fast execution in speed with the highest accuracy on predictions, so random forest model is finally selected.
+```{r modelfit}
+library(randomForest)
+rfModFit <- randomForest(classe ~ ., data=training, ntree = 300)
+print(rfModFit)
+```
+
+# 4. In sample error with training data set (p=0.75)
+```{r insample_err}
+pred <- predict(rfModFit, training)
+library(caret)
+# get expected out of sample error (OOB - Out of Bag error rate) 
+print(rfModFit)
+confusionMatrix(pred, training$classe)
+confusionMatrix(pred, training$classe)$overall['Accuracy']
+```
+
+# 5. Out of sample error estimation with cross-validation data set (p=0.25)
+```{r outofsample_err}
+# get predictions value from validation data set 
+predictions <- predict(rfModFit, testing)
+confusionMatrix(predictions, testing$classe)
+accuracyval <- confusionMatrix(predictions, testing$classe)$overall['Accuracy']
+```
+Accuracy of this random forest model on cross validation set is optimistic estimate of the test(new) data set. So accuracy rate `r accuracyval` is expected on new data set lower than in sample accuracy rate `r confusionMatrix(pred, training$classe)$overall['Accuracy']`.
