@@ -2,7 +2,9 @@
 title: "Qualitative Activity Recognition"
 author: "HyoJung Kim"
 date: "Sunday, September 21, 2014"
-output: html_document
+output:
+  html_document:
+    keep_md: yes
 ---
 # 1. Overview 
 People rarely quantify how well they do executing an activity. 
